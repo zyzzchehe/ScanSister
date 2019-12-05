@@ -1,0 +1,2 @@
+include ':app', ':constraintlayouttest'
+rootProject.name='ScanSister'
