@@ -6,7 +6,7 @@ android {
 
 
     defaultConfig {
-        applicationId "com.example.constraintlayouttest"
+        applicationId "com.example.xtwebview"
         minSdkVersion 15
         targetSdkVersion 29
         versionCode 1

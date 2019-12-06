@@ -4,7 +4,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 
-public class CacheTools {
+public class MD5Encoder {
 
     /**
      * 将图片url转换为MD5，当做缓存文件的文件名，这样才是唯一的，每一张图片对应一个缓存文件

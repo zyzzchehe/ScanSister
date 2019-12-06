@@ -6,6 +6,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Environment;
+import android.util.Log;
 
 import java.io.File;
 import java.io.FileDescriptor;
@@ -25,36 +26,50 @@ public class DiskCacheHelper {
      * 清除缓存
      */
 
-    static DiskLruCache diskLruCache;
+    DiskLruCache mDiskLruCache;
+    MemoryCacheHelper mMemoryCacheHelper;
 
-    /**
-     * 打开缓存，获取缓存对象
-     * 4个参数：
-     * 缓存路径 appversioncode 每个key对应几个缓存文件 一般都是1个，每个缓存文件可以存储的最对字节
-     */
-    public static DiskLruCache initDiskCache(Context context) {
+    public DiskCacheHelper(Context context){
         try {
-            diskLruCache = DiskLruCache.open(getDiskCacheDir(context,"scan_sister"),getAppVersion(context),1,10*1024*1024);
-            return diskLruCache;
+            /**
+             * 打开缓存，获取缓存对象
+             * 4个参数：
+             * 缓存路径 appversioncode 每个key对应几个缓存文件 一般都是1个，每个缓存文件可以存储的最对字节
+             */
+            File mFile = getDiskCacheDir(context);
+            if(!mFile.exists()){
+                mFile.mkdirs();
+            }
+            mDiskLruCache = DiskLruCache.open(mFile,getAppVersion(context),1,10*1024*1024);
+            mMemoryCacheHelper = new MemoryCacheHelper();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return null;
     }
 
 
-    public static File getDiskCacheDir(Context context, String uniqueName) {
+
+
+    /**
+     * 先判断是否有外置sd卡，如果有就会保存在//sdcard/Android/data/包名/cache下边
+     * 否则如果没有，那就保存在//data/data/包名下边
+     * @param context 上下文
+     * @return
+     */
+    public File getDiskCacheDir(Context context) {
         String cachePath;
         if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())
                 || !Environment.isExternalStorageRemovable()) {
             cachePath = context.getExternalCacheDir().getPath();//sdcard/Android/data/包名/cache
+            Log.d("zyz","out sdcard cachePath = "+cachePath);
         } else {
-            cachePath = context.getCacheDir().getPath();//data/data/包名
+            cachePath = Environment.getExternalStorageDirectory().getAbsoluteFile()+"/scan_sister";//data/data/包名
+            Log.d("zyz","in sdcard cachePath = "+cachePath);
         }
-        return new File(cachePath + File.separator + uniqueName);
+        return new File(cachePath);
     }
 
-    public static int getAppVersion(Context context) {
+    public int getAppVersion(Context context) {
         try {
             PackageInfo info = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
             return info.versionCode;
@@ -68,25 +83,23 @@ public class DiskCacheHelper {
     /**
      * 写入缓存
      */
-    public static void addBitmapToDiskCache(Context context,String imageUrl){
+    public void addBitmapToDiskCache(String url,Bitmap bitmap){
         FileInputStream fileInputStream = null;
-        FileDescriptor fileDescriptor = null;
+        FileDescriptor fileDescriptor;
         try {
-            String key = CacheTools.imageUrlToMD5(imageUrl);
-            DiskLruCache.Editor editor = initDiskCache(context).edit(key);//这里要传入缓存文件文件名
+            String key = MD5Encoder.imageUrlToMD5(url);
+            DiskLruCache.Editor editor = mDiskLruCache.edit(key);//这里要传入缓存文件文件名
             OutputStream outputStream = editor.newOutputStream(0);
+            boolean compressSucc = bitmap.compress(Bitmap.CompressFormat.PNG,100,outputStream);
             //判断是否存储成功
-            if(ImageLoader.getSisterImageDataAndSaveToDiskCache(outputStream,imageUrl)){
+            if(compressSucc){
                 editor.commit();
             }else {
                 editor.abort();
             }
-            diskLruCache.flush();
-            fileInputStream = (FileInputStream) diskLruCache.get(key).getInputStream(0);
-            fileDescriptor = fileInputStream.getFD();
+            mDiskLruCache.flush();
             //添加到内存缓存
-            Bitmap bitmap = BitmapFactory.decodeFileDescriptor(fileDescriptor);
-            MemoryCacheHelper.addBitmapToMemoryCache(imageUrl,bitmap);
+            mMemoryCacheHelper.addBitmapToMemoryCache(url,bitmap);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -102,10 +115,10 @@ public class DiskCacheHelper {
     /**
      * 读取缓存
      */
-    public static Bitmap getBitmapFromDiskCache(String imageUrl){
+    public Bitmap getBitmapFromDiskCache(String imageUrl){
         try {
-            String key = CacheTools.imageUrlToMD5(imageUrl);
-            DiskLruCache.Snapshot snapShot = diskLruCache.get(key);
+            String key = MD5Encoder.imageUrlToMD5(imageUrl);
+            DiskLruCache.Snapshot snapShot = mDiskLruCache.get(key);
             if (snapShot != null) {
                 InputStream is = snapShot.getInputStream(0);
                 Bitmap bitmap = BitmapFactory.decodeStream(is);
@@ -120,10 +133,10 @@ public class DiskCacheHelper {
     /**
      * 清除缓存
      */
-    public static void clearDiskCache(String imageUrl){
-        String key = CacheTools.imageUrlToMD5(imageUrl);
+    public void clearDiskCache(String imageUrl){
+        String key = MD5Encoder.imageUrlToMD5(imageUrl);
         try {
-            diskLruCache.remove(key);
+            mDiskLruCache.remove(key);
         } catch (IOException e) {
             e.printStackTrace();
         }
