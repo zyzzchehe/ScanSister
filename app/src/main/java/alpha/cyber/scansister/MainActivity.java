@@ -2,7 +2,9 @@ package alpha.cyber.scansister;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.collection.LruCache;
 
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Handler;
@@ -16,6 +18,10 @@ import java.util.List;
 import java.util.Random;
 
 import alpha.cyber.scansister.bean.Sister;
+import alpha.cyber.scansister.cache.CacheTools;
+import alpha.cyber.scansister.cache.DiskCacheHelper;
+import alpha.cyber.scansister.cache.DiskLruCache;
+import alpha.cyber.scansister.cache.MemoryCacheHelper;
 import alpha.cyber.scansister.http.ImageLoader;
 
 public class MainActivity extends AppCompatActivity {
@@ -50,13 +56,8 @@ public class MainActivity extends AppCompatActivity {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        byte[] data = ImageLoader.getSisterImage(list.get(count).getUrl());
-                        Message message = Message.obtain();
-                        message.what = 100;
-                        Bundle bundle = new Bundle();
-                        bundle.putByteArray("byteArr",data);
-                        message.setData(bundle);
-                        handler.sendMessage(message);
+                        String url = list.get(count).getUrl();
+                        handImageUrl(url);
                         count++;
                         if(count == list.size()-1){
                             count = 0;
@@ -72,10 +73,14 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void handleMessage(@NonNull Message msg) {
             super.handleMessage(msg);
+            String url =  msg.getData().getString("imgUrl");
             if(msg.what == 100){
-                byte[] arr =  msg.getData().getByteArray("byteArr");
                 Log.e("zyz","find sister image success,展示妹子图片");
-                mImageView.setImageBitmap(BitmapFactory.decodeByteArray(arr,0,arr.length));
+                mImageView.setImageBitmap(MemoryCacheHelper.getBitmapFromMemoryCache(url));
+            }else if (msg.what == 101){
+                mImageView.setImageBitmap(DiskCacheHelper.getBitmapFromDiskCache(url));
+            }else {
+                Log.d("zyz","do nothing");
             }
         }
     };
@@ -90,15 +95,42 @@ public class MainActivity extends AppCompatActivity {
                     Log.e("zyz","请求失败");
                 }else {
                     Log.e("zyz","请求成功， list size = "+list.size()+" ,展示妹子图片！！！");
-                    byte[] data = ImageLoader.getSisterImage(list.get(0).getUrl());
-                    Message message = Message.obtain();
-                    message.what = 100;
-                    Bundle bundle = new Bundle();
-                    bundle.putByteArray("byteArr",data);
-                    message.setData(bundle);
-                    handler.sendMessage(message);
+                    String imgUrl = list.get(0).getUrl();
+                    handImageUrl(imgUrl);
                 }
             }
         }).start();
+    }
+
+    private void handImageUrl(String imgUrl) {
+        //先判断内存缓存中是否存在该图片
+        if(MemoryCacheHelper.initMemoryCache() != null && MemoryCacheHelper.getBitmapFromMemoryCache(imgUrl) != null){
+            //去显示图片
+            Log.d("zyz","memory exist");
+            Message message = Message.obtain();
+            message.what = 100;
+            Bundle bundle = new Bundle();
+            bundle.putString("imgUrl",imgUrl);
+            message.setData(bundle);
+            handler.sendMessage(message);
+            return;
+        }else {
+            //再判断磁盘缓存中是否存在该图片
+            if(DiskCacheHelper.initDiskCache(MainActivity.this) != null && DiskCacheHelper.getBitmapFromDiskCache(imgUrl) != null){
+                //去显示图片
+                Log.d("zyz","disk exist");
+                Message message = Message.obtain();
+                message.what = 101;
+                Bundle bundle = new Bundle();
+                bundle.putString("imgUrl",imgUrl);
+                message.setData(bundle);
+                handler.sendMessage(message);
+                return;
+            }else {
+                //将图片加到内存中和磁盘中
+                DiskCacheHelper.addBitmapToDiskCache(MainActivity.this,imgUrl);
+                handImageUrl(imgUrl);
+            }
+        }
     }
 }
