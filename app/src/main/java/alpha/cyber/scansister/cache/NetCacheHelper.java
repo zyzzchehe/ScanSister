@@ -7,8 +7,12 @@ import android.widget.ImageView;
 
 import alpha.cyber.scansister.http.ImageLoader;
 
+
 public class NetCacheHelper {
 
+    private static final String TAG="NetCacheHelper";
+    
+    
     private MemoryCacheHelper memoryCacheHelper;
     private DiskCacheHelper diskCacheHelper;
     private ImageView imageView;
@@ -21,16 +25,16 @@ public class NetCacheHelper {
         this.imageView = imageView;
         Bitmap bitmap = memoryCacheHelper.getBitmapFromMemoryCache(url);
         if(bitmap != null){
-            Log.d("zyz","内存缓存中存在，url is "+url);
+            Log.d(TAG,"内存缓存中存在，url is "+url);
             imageView.setImageBitmap(bitmap);
         }else {
             bitmap = diskCacheHelper.getBitmapFromDiskCache(url);
             if(bitmap != null){
-                Log.d("zyz","磁盘缓存中存在，url is "+url);
+                Log.d(TAG,"磁盘缓存中存在，url is "+url);
                 imageView.setImageBitmap(bitmap);
             }else {
                 Object[] objArr = new Object[]{url};
-                Log.d("zyz","内存缓存、磁盘缓存都没有，去网络下载，url is "+url);
+                Log.d(TAG,"内存缓存、磁盘缓存都没有，去网络下载，url is "+url);
                 new MyTask().execute(objArr);
             }
         }
@@ -55,7 +59,7 @@ public class NetCacheHelper {
         @Override
         protected void onPostExecute(Bitmap bitmap) {
             super.onPostExecute(bitmap);
-            Log.e("zyz","请求成功，显示妹子靓照");
+            Log.e(TAG,"请求成功，显示妹子靓照");
             imageView.setImageBitmap(bitmap);
         }
     }

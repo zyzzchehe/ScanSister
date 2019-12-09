@@ -20,7 +20,7 @@ import alpha.cyber.scansister.cache.NetCacheHelper;
 import alpha.cyber.scansister.http.ImageLoader;
 
 public class MainActivity extends AppCompatActivity {
-
+    private static final String TAG = "MainActivity";
     private ImageView mImageView;
     private List<Sister> list;
     private int count = 1;
@@ -74,9 +74,9 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 list =  ImageLoader.parseJsonData(ImageLoader.getJsonData(imgPath));
                 if(list == null || list.size() == 0) {
-                    Log.e("zyz","init first image fail");
+                    Log.e(TAG,"init first image fail");
                 }else {
-                    Log.e("zyz","init success， list size = "+list.size()+" ,display the first image");
+                    Log.e(TAG,"init success， list size = "+list.size()+" ,display the first image");
                     String imgUrl = list.get(0).getUrl();
                     Message message = Message.obtain();
                     message.obj = imgUrl;
